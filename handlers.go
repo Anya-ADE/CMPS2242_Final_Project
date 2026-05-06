@@ -88,16 +88,25 @@ func (app *application) validateYearParameter(yearStr string) (int, bool) {
 	return year, true
 }
 
+// Health check endpoint
 func (app *application) healthCheck(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
+	var testQuery int
+	err := app.db.QueryRowContext(r.Context(), "SELECT 1").Scan(&testQuery)
+	dbStatus := "connected"
+	if err != nil {
+		dbStatus = "disconnected"
+	}
+
 	app.writeJSON(w, http.StatusOK, Envelope{
 		"status":   "available",
 		"api":      "Belize Holidays API 2026",
-		"database": "connected",
+		"database": dbStatus,
+		"version":  "1.0.0",
 	}, nil)
 }
 
@@ -268,12 +277,14 @@ func (app *application) checkTodayHoliday(w http.ResponseWriter, r *http.Request
 		response = Envelope{
 			"isHoliday": "yes",
 			"occasion":  occasion.String,
+			"date":      today,
 			"message":   "Congratulations. You deserve a break. 🎉",
 		}
 	} else {
 		response = Envelope{
 			"isHoliday": "no",
 			"occasion":  nil,
+			"date":      today,
 			"message":   "I know you need a break, but hold on a bit longer. 💪",
 		}
 	}
@@ -313,7 +324,11 @@ func (app *application) getNextHoliday(w http.ResponseWriter, r *http.Request) {
 		// No more holidays in 2026, return first holiday of 2026
 		query2 := `SELECT day_of_week, TO_CHAR(date_value, 'DDth Month') as date, occasion 
 		           FROM holidays WHERE year = 2026 ORDER BY date_value LIMIT 1`
-		app.db.QueryRowContext(r.Context(), query2).Scan(&day, &date, &occasion)
+		err2 := app.db.QueryRowContext(r.Context(), query2).Scan(&day, &date, &occasion)
+		if err2 != nil {
+			app.serverError(w, err2)
+			return
+		}
 		response = Envelope{
 			"day":      day,
 			"date":     date,
@@ -366,6 +381,7 @@ func (app *application) getThisMonthHolidays(w http.ResponseWriter, r *http.Requ
 		"month":    currentMonthName,
 		"year":     2026,
 		"holidays": holidays,
+		"count":    len(holidays),
 	}
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
@@ -385,7 +401,7 @@ func (app *application) getNextMonthHolidays(w http.ResponseWriter, r *http.Requ
 			"month":    "January",
 			"year":     2027,
 			"holidays": []Holiday{},
-			"message":  "Holidays for 2027 are not yet available",
+			"message":  "Holidays for 2027 are not yet available in the database",
 		}
 		app.writeJSON(w, http.StatusOK, response, nil)
 		return
@@ -423,6 +439,7 @@ func (app *application) getNextMonthHolidays(w http.ResponseWriter, r *http.Requ
 		"month":    monthName,
 		"year":     2026,
 		"holidays": holidays,
+		"count":    len(holidays),
 	}
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
@@ -445,7 +462,7 @@ func (app *application) getHolidaysByYear(w http.ResponseWriter, r *http.Request
 
 	// Validate year is 2026
 	if !app.validateYear(year) {
-		app.badRequest(w, "Data only available for 2026")
+		app.badRequest(w, "Data only available for 2026. Please use year=2026")
 		return
 	}
 
@@ -470,9 +487,15 @@ func (app *application) getHolidaysByYear(w http.ResponseWriter, r *http.Request
 		holidays = append(holidays, h)
 	}
 
+	if len(holidays) == 0 {
+		app.notFound(w)
+		return
+	}
+
 	response := Envelope{
 		"year":     2026,
 		"holidays": holidays,
+		"count":    len(holidays),
 	}
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
