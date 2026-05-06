@@ -13,6 +13,7 @@ type application struct {
 	db *sql.DB
 }
 
+// Helper function to write JSON responses
 func (app *application) writeJSON(w http.ResponseWriter, status int, data interface{}, headers http.Header) error {
 	js, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
@@ -36,7 +37,7 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data interf
 
 // Error response helper
 func (app *application) errorResponse(w http.ResponseWriter, status int, message string, code string) {
-	response := Envelope{
+	response := map[string]interface{}{
 		"error":  message,
 		"code":   code,
 		"status": status,
@@ -56,7 +57,7 @@ func (app *application) badRequest(w http.ResponseWriter, message string) {
 	app.errorResponse(w, http.StatusBadRequest, message, "BAD_REQUEST")
 }
 
-// Validation functions moved to handlers
+// Validation functions
 func (app *application) validateYear(year int) bool {
 	return year == 2026
 }
@@ -95,18 +96,9 @@ func (app *application) healthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var testQuery int
-	err := app.db.QueryRowContext(r.Context(), "SELECT 1").Scan(&testQuery)
-	dbStatus := "connected"
-	if err != nil {
-		dbStatus = "disconnected"
-	}
-
-	app.writeJSON(w, http.StatusOK, Envelope{
-		"status":   "available",
-		"api":      "Belize Holidays API 2026",
-		"database": dbStatus,
-		"version":  "1.0.0",
+	app.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status": "available",
+		"api":    "Belize Holidays API 2026",
 	}, nil)
 }
 
@@ -119,7 +111,6 @@ func (app *application) getCurrentMonthHolidays(w http.ResponseWriter, r *http.R
 
 	currentMonth := int(time.Now().Month())
 
-	// Validate month
 	if !app.validateMonth(currentMonth) {
 		app.badRequest(w, "Invalid month")
 		return
@@ -135,15 +126,19 @@ func (app *application) getCurrentMonthHolidays(w http.ResponseWriter, r *http.R
 	}
 	defer rows.Close()
 
-	var holidays []Holiday
+	var holidays []map[string]string
 	for rows.Next() {
-		var h Holiday
-		err := rows.Scan(&h.DayOfWeek, &h.Date, &h.Occasion)
+		var day, date, occasion string
+		err := rows.Scan(&day, &date, &occasion)
 		if err != nil {
 			app.serverError(w, err)
 			return
 		}
-		holidays = append(holidays, h)
+		holidays = append(holidays, map[string]string{
+			"day":      day,
+			"date":     date,
+			"occasion": occasion,
+		})
 	}
 
 	app.writeJSON(w, http.StatusOK, holidays, nil)
@@ -176,7 +171,7 @@ func (app *application) getAllOccasions(w http.ResponseWriter, r *http.Request) 
 		occasions = append(occasions, occasion)
 	}
 
-	response := Envelope{
+	response := map[string]interface{}{
 		"year":      2026,
 		"occasions": occasions,
 		"count":     len(occasions),
@@ -262,7 +257,6 @@ func (app *application) checkTodayHoliday(w http.ResponseWriter, r *http.Request
 
 	today := time.Now().Format("2006-01-02")
 
-	// Validate date
 	if !app.validateDate(today) {
 		app.badRequest(w, "Invalid date format")
 		return
@@ -272,16 +266,16 @@ func (app *application) checkTodayHoliday(w http.ResponseWriter, r *http.Request
 	var occasion sql.NullString
 	err := app.db.QueryRowContext(r.Context(), query, today).Scan(&occasion)
 
-	var response Envelope
+	var response map[string]interface{}
 	if err == nil && occasion.Valid {
-		response = Envelope{
+		response = map[string]interface{}{
 			"isHoliday": "yes",
 			"occasion":  occasion.String,
 			"date":      today,
 			"message":   "Congratulations. You deserve a break. 🎉",
 		}
 	} else {
-		response = Envelope{
+		response = map[string]interface{}{
 			"isHoliday": "no",
 			"occasion":  nil,
 			"date":      today,
@@ -301,7 +295,6 @@ func (app *application) getNextHoliday(w http.ResponseWriter, r *http.Request) {
 
 	today := time.Now().Format("2006-01-02")
 
-	// Validate date
 	if !app.validateDate(today) {
 		app.badRequest(w, "Invalid date format")
 		return
@@ -313,9 +306,9 @@ func (app *application) getNextHoliday(w http.ResponseWriter, r *http.Request) {
 	var day, date, occasion string
 	err := app.db.QueryRowContext(r.Context(), query, today).Scan(&day, &date, &occasion)
 
-	var response Envelope
+	var response map[string]interface{}
 	if err == nil {
-		response = Envelope{
+		response = map[string]interface{}{
 			"day":      day,
 			"date":     date,
 			"occasion": occasion,
@@ -329,7 +322,7 @@ func (app *application) getNextHoliday(w http.ResponseWriter, r *http.Request) {
 			app.serverError(w, err2)
 			return
 		}
-		response = Envelope{
+		response = map[string]interface{}{
 			"day":      day,
 			"date":     date,
 			"occasion": occasion,
@@ -350,7 +343,6 @@ func (app *application) getThisMonthHolidays(w http.ResponseWriter, r *http.Requ
 	currentMonth := int(time.Now().Month())
 	currentMonthName := time.Now().Month().String()
 
-	// Validate month
 	if !app.validateMonth(currentMonth) {
 		app.badRequest(w, "Invalid month")
 		return
@@ -366,18 +358,22 @@ func (app *application) getThisMonthHolidays(w http.ResponseWriter, r *http.Requ
 	}
 	defer rows.Close()
 
-	var holidays []Holiday
+	var holidays []map[string]string
 	for rows.Next() {
-		var h Holiday
-		err := rows.Scan(&h.DayOfWeek, &h.Date, &h.Occasion)
+		var day, date, occasion string
+		err := rows.Scan(&day, &date, &occasion)
 		if err != nil {
 			app.serverError(w, err)
 			return
 		}
-		holidays = append(holidays, h)
+		holidays = append(holidays, map[string]string{
+			"day":      day,
+			"date":     date,
+			"occasion": occasion,
+		})
 	}
 
-	response := Envelope{
+	response := map[string]interface{}{
 		"month":    currentMonthName,
 		"year":     2026,
 		"holidays": holidays,
@@ -397,17 +393,16 @@ func (app *application) getNextMonthHolidays(w http.ResponseWriter, r *http.Requ
 	nextMonth := currentMonth + 1
 
 	if nextMonth > 12 {
-		response := Envelope{
+		response := map[string]interface{}{
 			"month":    "January",
 			"year":     2027,
-			"holidays": []Holiday{},
+			"holidays": []string{},
 			"message":  "Holidays for 2027 are not yet available in the database",
 		}
 		app.writeJSON(w, http.StatusOK, response, nil)
 		return
 	}
 
-	// Validate month
 	if !app.validateMonth(nextMonth) {
 		app.badRequest(w, "Invalid month")
 		return
@@ -423,19 +418,23 @@ func (app *application) getNextMonthHolidays(w http.ResponseWriter, r *http.Requ
 	}
 	defer rows.Close()
 
-	var holidays []Holiday
+	var holidays []map[string]string
 	for rows.Next() {
-		var h Holiday
-		err := rows.Scan(&h.DayOfWeek, &h.Date, &h.Occasion)
+		var day, date, occasion string
+		err := rows.Scan(&day, &date, &occasion)
 		if err != nil {
 			app.serverError(w, err)
 			return
 		}
-		holidays = append(holidays, h)
+		holidays = append(holidays, map[string]string{
+			"day":      day,
+			"date":     date,
+			"occasion": occasion,
+		})
 	}
 
 	monthName := time.Month(nextMonth).String()
-	response := Envelope{
+	response := map[string]interface{}{
 		"month":    monthName,
 		"year":     2026,
 		"holidays": holidays,
@@ -453,14 +452,12 @@ func (app *application) getHolidaysByYear(w http.ResponseWriter, r *http.Request
 
 	yearStr := r.PathValue("year")
 
-	// Validate year parameter
 	year, valid := app.validateYearParameter(yearStr)
 	if !valid {
 		app.badRequest(w, "Year must be a valid 4-digit number")
 		return
 	}
 
-	// Validate year is 2026
 	if !app.validateYear(year) {
 		app.badRequest(w, "Data only available for 2026. Please use year=2026")
 		return
@@ -476,15 +473,21 @@ func (app *application) getHolidaysByYear(w http.ResponseWriter, r *http.Request
 	}
 	defer rows.Close()
 
-	var holidays []Holiday
+	var holidays []map[string]interface{}
 	for rows.Next() {
-		var h Holiday
-		err := rows.Scan(&h.DayOfWeek, &h.Date, &h.Occasion, &h.Year)
+		var day, date, occasion string
+		var yearVal int
+		err := rows.Scan(&day, &date, &occasion, &yearVal)
 		if err != nil {
 			app.serverError(w, err)
 			return
 		}
-		holidays = append(holidays, h)
+		holidays = append(holidays, map[string]interface{}{
+			"day":      day,
+			"date":     date,
+			"occasion": occasion,
+			"year":     yearVal,
+		})
 	}
 
 	if len(holidays) == 0 {
@@ -492,7 +495,7 @@ func (app *application) getHolidaysByYear(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response := Envelope{
+	response := map[string]interface{}{
 		"year":     2026,
 		"holidays": holidays,
 		"count":    len(holidays),
