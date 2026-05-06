@@ -1,4 +1,4 @@
-# 1. Health check with headers
+# 1. Health Check
 curl -i http://localhost:4000/health
 
 # 2. Get holidays in current month
@@ -28,14 +28,17 @@ curl -i http://localhost:4000/api/holidays/next-month
 # 10. Get holidays for 2026
 curl -i http://localhost:4000/api/holidays/year/2026
 
-# 11. Test invalid year (should return 400 error)
+# 11. Get holidays for specific month (January)
+curl -i http://localhost:4000/api/holidays/month/2026/1
+
+# 12. Get holidays for specific month (December)
+curl -i http://localhost:4000/api/holidays/month/2026/12
+
+# 13. Test invalid year (should return error)
 curl -i http://localhost:4000/api/holidays/year/2025
 
-# 12. Test invalid year format (should return 400 error)
-curl -i http://localhost:4000/api/holidays/year/20
+# 14. Test invalid month (should return error)
+curl -i http://localhost:4000/api/holidays/month/2026/13
 
-# 13. Test non-existent endpoint (should return 404)
-curl -i http://localhost:4000/api/invalid
-
-# 14. Test wrong method (POST instead of GET)
-curl -i -X POST http://localhost:4000/api/holidays/today
+# 15. Test invalid date format
+curl -i http://localhost:4000/api/holidays/year/2026/invalid
