@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -450,8 +451,11 @@ func (app *application) getHolidaysByYear(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	yearStr := r.PathValue("year")
+	// Get year from URL - handle both /year/2026 and /year/{year}
+	path := r.URL.Path
+	yearStr := strings.TrimPrefix(path, "/api/holidays/year/")
 
+	// Validate year parameter
 	year, valid := app.validateYearParameter(yearStr)
 	if !valid {
 		app.badRequest(w, "Year must be a valid 4-digit number")
@@ -519,5 +523,5 @@ func (app *application) serveCSS(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) serveJS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript")
-	http.ServeFile(w, r, "UI/scripts.js")
+	http.ServeFile(w, r, "UI/script.js")
 }
