@@ -1,10 +1,13 @@
 // API Base URL
 const API_BASE = '/api/holidays';
 
-// Debug flag to see console logs
+// Current selected month (starts with current month)
+let currentDisplayMonth = new Date().getMonth() + 1; // 1-12
+let currentDisplayYear = 2026;
+
+// Debug flag
 const DEBUG = true;
 
-// Helper function for debugging
 function log(message, data) {
     if (DEBUG) {
         if (data) {
@@ -15,13 +18,11 @@ function log(message, data) {
     }
 }
 
-// Fetch API helper with better error handling
+// Fetch API helper
 async function fetchAPI(endpoint) {
     try {
         log(`Fetching: ${API_BASE}${endpoint}`);
         const response = await fetch(`${API_BASE}${endpoint}`);
-        
-        log(`Response status: ${response.status}`);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -37,11 +38,17 @@ async function fetchAPI(endpoint) {
     }
 }
 
-// Show error message in a specific container
-function showError(containerId, message) {
-    const container = document.getElementById(containerId);
-    if (container) {
-        container.innerHTML = `<div class="error">⚠️ Error: ${message}</div>`;
+// Fetch holidays for a specific month
+async function fetchHolidaysByMonth(month, year) {
+    try {
+        const response = await fetch(`${API_BASE}/month/${year}/${month}`);
+        if (!response.ok) {
+            return null;
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching month holidays:', error);
+        return null;
     }
 }
 
@@ -51,6 +58,56 @@ function showLoading(containerId) {
     if (container) {
         container.innerHTML = '<div class="loading">📅 Loading...</div>';
     }
+}
+
+// Load holidays for a specific month
+async function loadHolidaysForMonth(month, year) {
+    log(`Loading holidays for ${year}-${month}`);
+    showLoading('content1');
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthName = monthNames[month - 1];
+    
+    document.getElementById('card1Title').innerHTML = `📅 ${monthName} ${year} Holidays`;
+    document.getElementById('card2Title').innerHTML = "🎊 All Occasions 2026";
+    
+    try {
+        const response = await fetch(`${API_BASE}/month/${year}/${month}`);
+        const data = await response.json();
+        const container = document.getElementById('content1');
+        
+        if (container) {
+            if (data && data.holidays && data.holidays.length > 0) {
+                container.innerHTML = `
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f3e5f5; border-radius: 8px; text-align: center;">
+                        <strong>${monthName} ${year}</strong> | ${data.holidays.length} Holiday${data.holidays.length > 1 ? 's' : ''}
+                    </div>
+                    <ul class="holiday-list">
+                        ${data.holidays.map(h => `
+                            <li>
+                                <div class="holiday-day">${h.day || ''}</div>
+                                <div class="holiday-occasion">${h.occasion || ''}</div>
+                                <div class="holiday-date">${h.date || ''}</div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+                log(`Loaded ${data.holidays.length} holidays for ${monthName}`);
+            } else if (data && data.holidays && data.holidays.length === 0) {
+                container.innerHTML = '<div class="loading">No holidays this month 📅</div>';
+            } else if (data && data.message) {
+                container.innerHTML = `<div class="loading">${data.message}</div>`;
+            } else {
+                container.innerHTML = '<div class="error">No holiday data available for this month</div>';
+            }
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('content1').innerHTML = '<div class="error">Failed to load holidays</div>';
+    }
+    
+    await loadAllOccasions();
 }
 
 // Load today's status
@@ -73,17 +130,12 @@ async function loadTodayStatus() {
                     </div>
                     <div class="message">${data.message || ''}</div>
                 `;
-                log('Today status loaded successfully');
             } else {
                 statusDiv.innerHTML = '<div class="error">Failed to load today\'s status</div>';
             }
         }
     } catch (error) {
         console.error('Error loading today status:', error);
-        const statusDiv = document.getElementById('todayStatus');
-        if (statusDiv) {
-            statusDiv.innerHTML = '<div class="error">Failed to load today\'s status</div>';
-        }
     }
     
     // Load next holiday
@@ -99,14 +151,13 @@ async function loadTodayStatus() {
                     ${nextData.message ? `<br><small>${nextData.message}</small>` : ''}
                 </div>
             `;
-            log('Next holiday loaded successfully');
         }
     } catch (error) {
         console.error('Error loading next holiday:', error);
     }
 }
 
-// Load all occasions (this populates the right card)
+// Load all occasions
 async function loadAllOccasions() {
     log('Loading all occasions...');
     showLoading('content2');
@@ -130,98 +181,65 @@ async function loadAllOccasions() {
             `;
             log(`Loaded ${data.occasions.length} occasions`);
         } else {
-            container.innerHTML = '<div class="error">No occasions found. Please run migrations first.</div>';
-            console.error('No occasions data received:', data);
+            container.innerHTML = '<div class="error">No occasions found</div>';
         }
     }
 }
 
-// Load this month's holidays
-async function loadThisMonth() {
-    log('Loading this month\'s holidays...');
-    showLoading('content1');
-    
-    document.getElementById('card1Title').innerHTML = "📅 Holidays This Month";
-    document.getElementById('card2Title').innerHTML = "🎊 All Occasions 2026";
-    
-    const data = await fetchAPI('/this-month');
-    const container = document.getElementById('content1');
-    
-    if (container) {
-        if (data && data.holidays && data.holidays.length > 0) {
-            container.innerHTML = `
-                <div style="margin-bottom: 15px; padding: 10px; background: #f3e5f5; border-radius: 8px; text-align: center;">
-                    <strong>${data.month || 'Unknown'} ${data.year || 2026}</strong> | ${data.holidays.length} Holiday${data.holidays.length > 1 ? 's' : ''}
-                </div>
-                <ul class="holiday-list">
-                    ${data.holidays.map(h => `
-                        <li>
-                            <div class="holiday-day">${h.day || ''}</div>
-                            <div class="holiday-occasion">${h.occasion || ''}</div>
-                            <div class="holiday-date">${h.date || ''}</div>
-                        </li>
-                    `).join('')}
-                </ul>
-            `;
-            log(`Loaded ${data.holidays.length} holidays for this month`);
-        } else if (data && data.holidays && data.holidays.length === 0) {
-            container.innerHTML = '<div class="loading">No holidays this month 📅</div>';
-            log('No holidays this month');
-        } else {
-            container.innerHTML = '<div class="error">Failed to load holiday data. Make sure the server is running and database has data.</div>';
-            console.error('Invalid data received:', data);
-        }
-    }
-    
-    // Also load occasions in the right panel
-    await loadAllOccasions();
+// Load current month
+async function loadCurrentMonth() {
+    const now = new Date();
+    currentDisplayMonth = now.getMonth() + 1;
+    currentDisplayYear = 2026;
+    await loadHolidaysForMonth(currentDisplayMonth, currentDisplayYear);
 }
 
-// Load next month's holidays
+// Load next month (increment by 1)
 async function loadNextMonth() {
-    log('Loading next month\'s holidays...');
-    showLoading('content1');
-    
-    document.getElementById('card1Title').innerHTML = "📆 Holidays Next Month";
-    document.getElementById('card2Title').innerHTML = "🎊 All Occasions 2026";
-    
-    const data = await fetchAPI('/next-month');
-    const container = document.getElementById('content1');
-    
-    if (container) {
-        if (data && data.holidays && data.holidays.length > 0) {
-            container.innerHTML = `
-                <div style="margin-bottom: 15px; padding: 10px; background: #f3e5f5; border-radius: 8px; text-align: center;">
-                    <strong>${data.month || 'Unknown'} ${data.year || 2026}</strong> | ${data.holidays.length} Holiday${data.holidays.length > 1 ? 's' : ''}
-                </div>
-                <ul class="holiday-list">
-                    ${data.holidays.map(h => `
-                        <li>
-                            <div class="holiday-day">${h.day || ''}</div>
-                            <div class="holiday-occasion">${h.occasion || ''}</div>
-                            <div class="holiday-date">${h.date || ''}</div>
-                        </li>
-                    `).join('')}
-                </ul>
-            `;
-            log(`Loaded ${data.holidays.length} holidays for next month`);
-        } else if (data && data.holidays && data.holidays.length === 0) {
-            container.innerHTML = '<div class="loading">No holidays next month 📅</div>';
-        } else if (data && data.message) {
-            container.innerHTML = `<div class="loading">${data.message}</div>`;
-        } else {
-            container.innerHTML = '<div class="error">Failed to load holiday data</div>';
-        }
+    currentDisplayMonth++;
+    if (currentDisplayMonth > 12) {
+        currentDisplayMonth = 1;
+        currentDisplayYear++;
     }
     
-    await loadAllOccasions();
+    if (currentDisplayYear > 2026) {
+        document.getElementById('content1').innerHTML = '<div class="loading">Holidays for 2027 are not yet available in the database</div>';
+        return;
+    }
+    
+    await loadHolidaysForMonth(currentDisplayMonth, currentDisplayYear);
+}
+
+// Load previous month (decrement by 1)
+async function loadPreviousMonth() {
+    currentDisplayMonth--;
+    if (currentDisplayMonth < 1) {
+        currentDisplayMonth = 12;
+        currentDisplayYear--;
+    }
+    
+    if (currentDisplayYear < 2026) {
+        document.getElementById('content1').innerHTML = '<div class="loading">No holiday data available before 2026</div>';
+        return;
+    }
+    
+    await loadHolidaysForMonth(currentDisplayMonth, currentDisplayYear);
+}
+
+// Load a specific month (January = 1, December = 12)
+async function loadSpecificMonth(month) {
+    if (month < 1 || month > 12) {
+        console.error('Invalid month:', month);
+        return;
+    }
+    currentDisplayMonth = month;
+    currentDisplayYear = 2026;
+    await loadHolidaysForMonth(currentDisplayMonth, currentDisplayYear);
 }
 
 // Load all dates
 async function loadAllDates() {
-    log('Loading all dates...');
     showLoading('content1');
-    
     document.getElementById('card1Title').innerHTML = "📝 All Holiday Dates";
     document.getElementById('card2Title').innerHTML = "🎊 All Occasions 2026";
     
@@ -254,9 +272,7 @@ async function loadAllDates() {
 
 // Load all days
 async function loadAllDays() {
-    log('Loading all days...');
     showLoading('content1');
-    
     document.getElementById('card1Title').innerHTML = "📌 Holidays by Day";
     document.getElementById('card2Title').innerHTML = "🎊 All Occasions 2026";
     
@@ -290,9 +306,7 @@ async function loadAllDays() {
 
 // Load full year 2026
 async function loadYear2026() {
-    log('Loading full year 2026...');
     showLoading('content1');
-    
     document.getElementById('card1Title').innerHTML = "📅 Full Year 2026 Holidays";
     document.getElementById('card2Title').innerHTML = "🎊 All Occasions 2026";
     
@@ -330,15 +344,11 @@ async function testAPIConnection() {
     try {
         const response = await fetch('/health');
         const data = await response.json();
-        log('API health check:', data);
-        
         if (data && data.status === 'available') {
             log('✅ API is running properly');
             return true;
-        } else {
-            log('⚠️ API returned unexpected response');
-            return false;
         }
+        return false;
     } catch (error) {
         console.error('❌ API connection failed:', error);
         return false;
@@ -349,7 +359,6 @@ async function testAPIConnection() {
 async function initialize() {
     log('Initializing Belize Holidays UI...');
     
-    // Check if API is reachable
     const isApiRunning = await testAPIConnection();
     
     if (!isApiRunning) {
@@ -366,14 +375,15 @@ async function initialize() {
         return;
     }
     
-    // Load all data
     await loadTodayStatus();
-    await loadThisMonth();
+    await loadCurrentMonth();
 }
 
 // Make functions available globally
-window.loadThisMonth = loadThisMonth;
+window.loadCurrentMonth = loadCurrentMonth;
 window.loadNextMonth = loadNextMonth;
+window.loadPreviousMonth = loadPreviousMonth;
+window.loadSpecificMonth = loadSpecificMonth;
 window.loadAllOccasions = loadAllOccasions;
 window.loadAllDates = loadAllDates;
 window.loadAllDays = loadAllDays;

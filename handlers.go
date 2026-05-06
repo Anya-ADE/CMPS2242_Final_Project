@@ -14,7 +14,6 @@ type application struct {
 	db *sql.DB
 }
 
-// Helper function to write JSON responses
 func (app *application) writeJSON(w http.ResponseWriter, status int, data interface{}, headers http.Header) error {
 	js, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
@@ -36,7 +35,6 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data interf
 	return err
 }
 
-// Error response helper
 func (app *application) errorResponse(w http.ResponseWriter, status int, message string, code string) {
 	response := map[string]interface{}{
 		"error":  message,
@@ -58,7 +56,6 @@ func (app *application) badRequest(w http.ResponseWriter, message string) {
 	app.errorResponse(w, http.StatusBadRequest, message, "BAD_REQUEST")
 }
 
-// Validation functions
 func (app *application) validateYear(year int) bool {
 	return year == 2026
 }
@@ -90,7 +87,6 @@ func (app *application) validateYearParameter(yearStr string) (int, bool) {
 	return year, true
 }
 
-// Health check endpoint
 func (app *application) healthCheck(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
@@ -103,7 +99,6 @@ func (app *application) healthCheck(w http.ResponseWriter, r *http.Request) {
 	}, nil)
 }
 
-// 1. Get holidays in current month
 func (app *application) getCurrentMonthHolidays(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
@@ -145,7 +140,6 @@ func (app *application) getCurrentMonthHolidays(w http.ResponseWriter, r *http.R
 	app.writeJSON(w, http.StatusOK, holidays, nil)
 }
 
-// 2. Get all occasions for 2026
 func (app *application) getAllOccasions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
@@ -180,7 +174,6 @@ func (app *application) getAllOccasions(w http.ResponseWriter, r *http.Request) 
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
 
-// 3. Get all dates
 func (app *application) getAllDates(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
@@ -214,7 +207,6 @@ func (app *application) getAllDates(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, dates, nil)
 }
 
-// 4. Get all days
 func (app *application) getAllDays(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
@@ -249,7 +241,6 @@ func (app *application) getAllDays(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, days, nil)
 }
 
-// 5. Check if today is a holiday
 func (app *application) checkTodayHoliday(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
@@ -287,7 +278,6 @@ func (app *application) checkTodayHoliday(w http.ResponseWriter, r *http.Request
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
 
-// 6. Get next holiday after today
 func (app *application) getNextHoliday(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
@@ -315,7 +305,6 @@ func (app *application) getNextHoliday(w http.ResponseWriter, r *http.Request) {
 			"occasion": occasion,
 		}
 	} else {
-		// No more holidays in 2026, return first holiday of 2026
 		query2 := `SELECT day_of_week, TO_CHAR(date_value, 'DDth Month') as date, occasion 
 		           FROM holidays WHERE year = 2026 ORDER BY date_value LIMIT 1`
 		err2 := app.db.QueryRowContext(r.Context(), query2).Scan(&day, &date, &occasion)
@@ -334,7 +323,6 @@ func (app *application) getNextHoliday(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
 
-// 7. Get holidays this month
 func (app *application) getThisMonthHolidays(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
@@ -383,21 +371,29 @@ func (app *application) getThisMonthHolidays(w http.ResponseWriter, r *http.Requ
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
 
-// 8. Get holidays next month
 func (app *application) getNextMonthHolidays(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
-	currentMonth := int(time.Now().Month())
+	now := time.Now()
+	currentMonth := int(now.Month())
+	currentYear := now.Year()
+
 	nextMonth := currentMonth + 1
+	nextMonthYear := currentYear
 
 	if nextMonth > 12 {
+		nextMonth = 1
+		nextMonthYear = currentYear + 1
+	}
+
+	if nextMonthYear != 2026 {
 		response := map[string]interface{}{
-			"month":    "January",
-			"year":     2027,
-			"holidays": []string{},
+			"month":    time.Month(nextMonth).String(),
+			"year":     nextMonthYear,
+			"holidays": []interface{}{},
 			"message":  "Holidays for 2027 are not yet available in the database",
 		}
 		app.writeJSON(w, http.StatusOK, response, nil)
@@ -444,18 +440,15 @@ func (app *application) getNextMonthHolidays(w http.ResponseWriter, r *http.Requ
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
 
-// 9. Get holidays for a specific year (only 2026)
 func (app *application) getHolidaysByYear(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
-	// Get year from URL - handle both /year/2026 and /year/{year}
 	path := r.URL.Path
 	yearStr := strings.TrimPrefix(path, "/api/holidays/year/")
 
-	// Validate year parameter
 	year, valid := app.validateYearParameter(yearStr)
 	if !valid {
 		app.badRequest(w, "Year must be a valid 4-digit number")
@@ -507,7 +500,80 @@ func (app *application) getHolidaysByYear(w http.ResponseWriter, r *http.Request
 	app.writeJSON(w, http.StatusOK, response, nil)
 }
 
-// UI Handlers
+func (app *application) getHolidaysByMonthYear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		app.errorResponse(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/holidays/month/")
+	parts := strings.Split(path, "/")
+
+	if len(parts) != 2 {
+		app.badRequest(w, "Invalid URL format. Use /api/holidays/month/{year}/{month}")
+		return
+	}
+
+	year, err := strconv.Atoi(parts[0])
+	if err != nil {
+		app.badRequest(w, "Invalid year format")
+		return
+	}
+
+	month, err := strconv.Atoi(parts[1])
+	if err != nil {
+		app.badRequest(w, "Invalid month format")
+		return
+	}
+
+	if year != 2026 {
+		app.badRequest(w, "Data only available for 2026")
+		return
+	}
+
+	if !app.validateMonth(month) {
+		app.badRequest(w, "Month must be between 1 and 12")
+		return
+	}
+
+	query := `SELECT day_of_week, TO_CHAR(date_value, 'DDth Month') as date, occasion 
+	          FROM holidays WHERE month = $1 AND year = $2 ORDER BY day_number`
+
+	rows, err := app.db.QueryContext(r.Context(), query, month, year)
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+	defer rows.Close()
+
+	var holidays []map[string]string
+	for rows.Next() {
+		var day, date, occasion string
+		err := rows.Scan(&day, &date, &occasion)
+		if err != nil {
+			app.serverError(w, err)
+			return
+		}
+		holidays = append(holidays, map[string]string{
+			"day":      day,
+			"date":     date,
+			"occasion": occasion,
+		})
+	}
+
+	monthNames := []string{"January", "February", "March", "April", "May", "June",
+		"July", "August", "September", "October", "November", "December"}
+	monthName := monthNames[month-1]
+
+	response := map[string]interface{}{
+		"month":    monthName,
+		"year":     year,
+		"holidays": holidays,
+		"count":    len(holidays),
+	}
+	app.writeJSON(w, http.StatusOK, response, nil)
+}
+
 func (app *application) serveUI(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		app.notFound(w)

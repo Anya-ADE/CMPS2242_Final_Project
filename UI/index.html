@@ -18,8 +18,27 @@
         </div>
 
         <div class="button-group">
-            <button class="btn btn-primary" onclick="loadThisMonth()">📅 This Month</button>
-            <button class="btn" onclick="loadNextMonth()">📆 Next Month</button>
+            <button class="btn" onclick="loadPreviousMonth()">◀ Previous Month</button>
+            <button class="btn btn-primary" onclick="loadCurrentMonth()">📅 Current Month</button>
+            <button class="btn" onclick="loadNextMonth()">Next Month ▶</button>
+        </div>
+
+        <div class="button-group">
+            <button class="btn" onclick="loadSpecificMonth(1)">January</button>
+            <button class="btn" onclick="loadSpecificMonth(2)">February</button>
+            <button class="btn" onclick="loadSpecificMonth(3)">March</button>
+            <button class="btn" onclick="loadSpecificMonth(4)">April</button>
+            <button class="btn" onclick="loadSpecificMonth(5)">May</button>
+            <button class="btn" onclick="loadSpecificMonth(6)">June</button>
+            <button class="btn" onclick="loadSpecificMonth(7)">July</button>
+            <button class="btn" onclick="loadSpecificMonth(8)">August</button>
+            <button class="btn" onclick="loadSpecificMonth(9)">September</button>
+            <button class="btn" onclick="loadSpecificMonth(10)">October</button>
+            <button class="btn" onclick="loadSpecificMonth(11)">November</button>
+            <button class="btn" onclick="loadSpecificMonth(12)">December</button>
+        </div>
+
+        <div class="button-group">
             <button class="btn" onclick="loadAllOccasions()">🎊 All Occasions</button>
             <button class="btn" onclick="loadAllDates()">📝 All Dates</button>
             <button class="btn" onclick="loadAllDays()">📌 All Days</button>
@@ -36,6 +55,7 @@
                 <div id="content2" class="loading">Select an option above</div>
             </div>
         </div>
+
 
     <script src="/UI/script.js"></script>
 </body>
