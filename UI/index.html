@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belize Holidays 2026</title>
+    <link rel="stylesheet" href="/UI/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🇧🇿 Belize Holidays 2026</h1>
+            <p>Official Public and Bank Holidays</p>
+        </div>
+
+        <div class="status-card" id="todayStatus">
+            <div class="loading">Loading today's information...</div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="loadThisMonth()">📅 This Month</button>
+            <button class="btn" onclick="loadNextMonth()">📆 Next Month</button>
+            <button class="btn" onclick="loadAllOccasions()">🎊 All Occasions</button>
+            <button class="btn" onclick="loadAllDates()">📝 All Dates</button>
+            <button class="btn" onclick="loadAllDays()">📌 All Days</button>
+            <button class="btn btn-primary" onclick="loadYear2026()">📅 Full Year 2026</button>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2 id="card1Title">Holidays</h2>
+                <div id="content1" class="loading">Click a button to load data...</div>
+            </div>
+            <div class="card">
+                <h2 id="card2Title">Information</h2>
+                <div id="content2" class="loading">Select an option above</div>
+            </div>
+        </div>
+
+    <script src="/UI/scripts.js"></script>
+</body>
+</html>

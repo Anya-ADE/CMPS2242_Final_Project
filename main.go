@@ -1,0 +1,75 @@
+package main
+
+import (
+	"flag"
+	"log"
+	"net/http"
+)
+
+func main() {
+	migrate := flag.Bool("migrate", false, "Run database migrations")
+	rollback := flag.Bool("rollback", false, "Rollback database migrations")
+	flag.Parse()
+
+	dsn := "postgres://holidays:holidays@localhost/holidays?sslmode=disable"
+
+	// Open database connection
+	db, err := OpenDB(dsn)
+	if err != nil {
+		log.Fatalf("Cannot open database: %v", err)
+	}
+	defer db.Close()
+
+	// Handle migration commands
+	if *migrate {
+		if err := RunMigrations(db); err != nil {
+			log.Fatalf("Migration failed: %v", err)
+		}
+		log.Println("Migrations completed. Exiting.")
+		return
+	}
+
+	if *rollback {
+		if err := RollbackMigrations(db); err != nil {
+			log.Fatalf("Rollback failed: %v", err)
+		}
+		log.Println("Rollback completed. Exiting.")
+		return
+	}
+
+	// Create application instance
+	app := &application{db: db}
+
+	// Setup routes
+	mux := setupRoutes(app)
+
+	// Print API information
+	log.Println("=== BELIZE HOLIDAYS API 2026 ===")
+	log.Println("Server starting on http://localhost:4000")
+	log.Println("Database: postgres://holidays:holidays@localhost/holidays")
+	log.Println()
+	log.Println("=== API Endpoints (curl commands) ===")
+	log.Println("  curl http://localhost:4000/health")
+	log.Println("  curl http://localhost:4000/api/holidays/today")
+	log.Println("  curl http://localhost:4000/api/holidays/occasions")
+	log.Println("  curl http://localhost:4000/api/holidays/dates")
+	log.Println("  curl http://localhost:4000/api/holidays/days")
+	log.Println("  curl http://localhost:4000/api/holidays/current-month")
+	log.Println("  curl http://localhost:4000/api/holidays/this-month")
+	log.Println("  curl http://localhost:4000/api/holidays/next-month")
+	log.Println("  curl http://localhost:4000/api/holidays/next")
+	log.Println("  curl http://localhost:4000/api/holidays/year/2026")
+	log.Println()
+	log.Println("=== UI ===")
+	log.Println("  Open http://localhost:4000 in your browser")
+	log.Println()
+	log.Println("=== Migration Commands ===")
+	log.Println("  migrate -path=./migrations -database=\"postgres://holidays:holidays@localhost/holidays?sslmode=disable\" up")
+	log.Println("  OR: go run . -migrate")
+	log.Println("  OR: go run . -rollback")
+	log.Println()
+
+	// Start server
+	err = http.ListenAndServe(":4000", mux)
+	log.Fatal(err)
+}
